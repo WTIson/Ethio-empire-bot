@@ -44,8 +44,8 @@ from telegram.ext import (
 # CONFIG
 # ----------------------------------------------------------------------
 
-BOT_TOKEN = "PUT_YOUR_BOT_TOKEN_HERE"          # from @BotFather
-OWNER_ID = 123456789                            # your numeric Telegram user id (see notes.md)
+BOT_TOKEN = "7864255983:AAE5cU2QIPb9cD01KUlruK8awRkA_JB9BF8"          # from @BotFather
+OWNER_ID =   6974850092                          # your numeric Telegram user id (see notes.md)
 
 DATA_FILE = "data.json"                         # stores price, payment info, approved users
 VIDEO_PATH = "tutorial_video.mp4"                # put your video file here (same folder)
