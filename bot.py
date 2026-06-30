@@ -51,14 +51,14 @@ DATA_FILE = "data.json"                         # stores price, payment info, ap
 VIDEO_PATH = "tutorial_video.mp4"                # put your video file here (same folder)
 
 DEFAULT_DATA = {
-    "ዋጋ": 500,                  # ETB, change anytime with /setprice
+    "price": 500,                  # ETB, change anytime with /setprice
     "currency": "ETB",
     "payment_instructions": (
-        "ክፍያ ለመፈፀም:\n"
+        "send the payment to:\n"
         "Telebirr: 0987015014\n"
         "CBE Account: 1000659611841\n"
         "Account Name: wondesen tamiru\n\n"
-        "ክፍያ ከፈፀማቹ በኋላ መክፈላቹን የሚያሳይ screen shot ይላኩ."
+        "After paying,send a screenshot of receipt here"
     ),
     "pending": {},      # {user_id: {"name":..., "username":...}}
     "approved": [],     # list of user_ids who already received the video
@@ -73,7 +73,7 @@ logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------
 # SIMPLE JSON "DATABASE"
-# ----------------------------------------------------------------------
+# ---------------------------------------------------------------------
 
 def load_data() -> dict:
     if not os.path.exists(DATA_FILE):
