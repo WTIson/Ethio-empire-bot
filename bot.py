@@ -51,14 +51,14 @@ DATA_FILE = "data.json"                         # stores price, payment info, ap
 VIDEO_PATH = "tutorial_video.mp4"                # put your video file here (same folder)
 
 DEFAULT_DATA = {
-    "price": 500,                  # ETB, change anytime with /setprice
+    "ዋጋ": 500,                  # ETB, change anytime with /setprice
     "currency": "ETB",
     "payment_instructions": (
-        "Send the payment to:\n"
+        "ክፍያ ለመፈፀም:\n"
         "Telebirr: 0987015014\n"
         "CBE Account: 1000659611841\n"
-        "Account Name: Ethio Empire\n\n"
-        "After paying, send a screenshot of the receipt here."
+        "Account Name: wondesen tamiru\n\n"
+        "ክፍያ ከፈፀማቹ በኋላ መክፈላቹን የሚያሳይ screen shot ይላኩ."
     ),
     "pending": {},      # {user_id: {"name":..., "username":...}}
     "approved": [],     # list of user_ids who already received the video
