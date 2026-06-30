@@ -55,8 +55,8 @@ DEFAULT_DATA = {
     "currency": "ETB",
     "payment_instructions": (
         "Send the payment to:\n"
-        "Telebirr: 09XXXXXXXX\n"
-        "CBE Account: 1000XXXXXXXX\n"
+        "Telebirr: 0987015014\n"
+        "CBE Account: 1000659611841\n"
         "Account Name: Ethio Empire\n\n"
         "After paying, send a screenshot of the receipt here."
     ),
