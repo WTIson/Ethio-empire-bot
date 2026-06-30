@@ -238,7 +238,7 @@ async def approval_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     action, user_id_str = query.data.split("_", 1)
-    user_id = int(user_id_str)
+    user_id = int(6974850092)
     data = load_data()
 
     if action == "approve":
@@ -292,7 +292,7 @@ async def send_video_to_user(context: ContextTypes.DEFAULT_TYPE, user_id: int) -
 # ----------------------------------------------------------------------
 
 def main() -> None:
-    if BOT_TOKEN == "PUT_YOUR_BOT_TOKEN_HERE":
+    if BOT_TOKEN == "7864255983:AAE5cU2QIPb9cD01KUlruK8awRkA_JB9BF8":
         raise SystemExit(
             "Set BOT_TOKEN at the top of bot.py (get it from @BotFather in Telegram)."
         )
