@@ -35,8 +35,8 @@ from telegram.ext import (
 # CONFIG — EDIT THESE TWO LINES
 # ----------------------------------------------------------------------
 
-BOT_TOKEN = "PUT_YOUR_BOT_TOKEN_HERE"   # from @BotFather
-OWNER_ID  = 123456789                   # your numeric Telegram user ID
+BOT_TOKEN = "7864255983:AAE5cU2QIPb9cD01KUlruK8awRkA_JB9BF8"   # from @BotFather
+OWNER_ID  = 6974850092                   # your numeric Telegram user ID
 
 # ----------------------------------------------------------------------
 # DEFAULT DATA
