@@ -1,59 +1,68 @@
-# Ethio Empire Bot — Setup Guide
+# Ethio Empire Bot — Full Setup Guide
 
-## 1. Create the bot on Telegram
-1. Open Telegram, search for **@BotFather**.
-2. Send `/newbot`, choose a name (e.g. "Ethio Empire") and a username ending in `bot`
-   (e.g. `EthioEmpire_bot`).
-3. BotFather gives you a **token** like `123456789:AAH...`. Copy it.
+## Folder structure needed on GitHub
+```
+ethio-empire-bot/
+├── bot.py
+├── requirements.txt
+├── files/
+│   ├── Math/
+│   │   ├── video.mp4
+│   │   ├── notes.pdf
+│   │   └── test.pdf
+│   ├── Physics/
+│   │   ├── video.mp4
+│   │   ├── notes.pdf
+│   │   └── test.pdf
+│   ├── Chemistry/
+│   │   ├── video.mp4
+│   │   ├── notes.pdf
+│   │   └── test.pdf
+│   └── Biology/
+│       ├── video.mp4
+│       ├── notes.pdf
+│       └── test.pdf
+```
 
-## 2. Get your own numeric Telegram user ID
-1. In Telegram, search for **@userinfobot** and send it any message.
-2. It replies with your numeric ID, e.g. `987654321`. This is your **OWNER_ID**.
-
-## 3. Configure the bot
-Open `bot.py` and edit these two lines near the top:
-
+## Step 1 — Edit bot.py
+Open bot.py in GitHub, tap the pencil icon and change:
 ```python
-BOT_TOKEN = "PUT_YOUR_BOT_TOKEN_HERE"   # paste the token from BotFather
-OWNER_ID = 123456789                     # paste your numeric ID
+BOT_TOKEN = "your token from @BotFather"
+OWNER_ID  = your numeric ID from @userinfobot
 ```
 
-Put your tutorial video file in the same folder and name it `tutorial_video.mp4`
-(or change `VIDEO_PATH` in bot.py to match your filename).
+## Step 2 — Upload your files
+In GitHub, create the folders above and upload each subject's:
+- video.mp4 (tutorial video)
+- notes.pdf (PDF notes)
+- test.pdf  (test/exam file)
 
-## 4. Install and run
-On your computer or server (needs Python 3.10+):
+## Step 3 — Deploy on Railway
+1. Go to railway.app
+2. New Project → Deploy from GitHub repo
+3. Pick your repo
+4. Set Start Command: python bot.py
+5. Done — Railway runs it 24/7
 
-```bash
-pip install -r requirements.txt
-python bot.py
-```
+## Owner Commands (send these to your bot in Telegram)
+| Command | What it does |
+|---|---|
+| /addsubject English 400 | Add a new subject at 400 ETB |
+| /setprice Math 600 | Change Math price to 600 ETB |
+| /setpay <text> | Update payment instructions |
+| /listsubjects | See all subjects and prices |
+| /pending | See who's waiting for approval |
 
-Leave it running (on a VPS, use something like `screen`, `tmux`, or a systemd
-service so it stays online 24/7). Free options if you don't have a server yet:
-Railway, Render, or PythonAnywhere all can keep a Python script running.
+## How the user flow works
+1. User sends /start → sees subject menu with prices
+2. Taps a subject → sees price + "I Want To Pay" button
+3. Taps pay → sees your Telebirr/CBE details
+4. Pays and sends screenshot
+5. YOU get the screenshot with ✅ Approve / ❌ Reject buttons
+6. Tap Approve → user instantly gets content menu for that subject
+7. User picks 🎬 Video / 📄 PDF / 📝 Test → file is sent automatically
 
-## 5. How it works day to day
-- Anyone who messages your bot sees `/start`, the price, and a "I Want To Pay"
-  button with your payment instructions.
-- They send a screenshot of their payment as a photo in the chat.
-- You (the owner) instantly get that screenshot forwarded to you with
-  **Approve** / **Reject** buttons.
-- Tap **Approve** → the bot automatically sends them the video.
-- Tap **Reject** → they get a polite decline message.
-
-## 6. Owner commands (only work for your OWNER_ID)
-- `/setprice 500` — change the price shown to users (any number)
-- `/setpay <text>` — change the payment instructions (your account numbers etc.)
-- `/pending` — list everyone currently waiting for approval
-
-## 7. Notes & ideas for later
-- Right now "payment proof" is a manual photo your check yourself — this is
-  the most reliable approach since Telegram Payments doesn't support
-  Ethiopian banks/telebirr directly.
-- If you later want **automatic** verification (no manual approval), you'd
-  need to integrate a local payment gateway's API (e.g. Chapa, SantimPay)
-  that can notify your bot when a payment succeeds — happy to help build
-  that next if you're interested.
-- All data (price, payment text, pending/approved users) is stored in
-  `data.json` next to the script — back this file up.
+## Changing subjects later
+- Add new subject: /addsubject SubjectName Price (then upload files to GitHub)
+- Change price: /setprice SubjectName NewPrice
+- Change payment info: /setpay your new details here
