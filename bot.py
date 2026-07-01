@@ -50,9 +50,9 @@ DEFAULT_DATA = {
     "channel_link": "https://t.me/+wPe77gv04BIzZjQ0",   # your private channel
     "payment_instructions": (
         "Send the payment to:\n"
-        "Telebirr: 09XXXXXXXX\n"
-        "CBE Account: 1000XXXXXXXX\n"
-        "Account Name: Ethio Empire\n\n"
+        "Telebirr: 0987015014\n"
+        "CBE Account: 1000659611841\n"
+        "Account Name:  wondesen tamiru\n\n"
         "After paying, send a screenshot of the receipt here."
     ),
     "pending": {},     # {user_id_str: {"name": ..., "username": ...}}
