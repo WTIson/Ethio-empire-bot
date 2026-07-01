@@ -65,7 +65,7 @@ DEFAULT_DATA = {
         "After paying, send a screenshot of the receipt here."
     ),
     "subjects": {
-        "Math": {"price": 500, "currency": "ETB"},
+        "Math": {"price": 600, "currency": "ETB"},
         "Physics": {"price": 500, "currency": "ETB"},
         "Chemistry": {"price": 500, "currency": "ETB"},
         "Biology": {"price": 500, "currency": "ETB"},
