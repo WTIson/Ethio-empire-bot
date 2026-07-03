@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="theme-color" content="#0A0A0A"/>
+<title>Ethio Empire</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --gold:#C9A84C;--gold-light:#E8C97A;--gold-dim:#8A6F2E;
+  --black:#0A0A0A;--dark:#111111;--dark2:#1A1A1A;--dark3:#242424;
+  --white:#F5F0E8;--gray:#888;--gray2:#555;
+  --green:#2ECC71;--red:#E74C3C;
+}
+html{scroll-behavior:smooth}
+body{background:var(--black);color:var(--white);font-family:'Inter',sans-serif;overflow-x:hidden;min-height:100vh}
+
+/* ── PAGES ── */
+.page{display:none;min-height:100vh;flex-direction:column}
+.page.active{display:flex}
+
+/* ── TOP NAV ── */
+.topbar{position:sticky;top:0;z-index:50;background:rgba(10,10,10,0.95);backdrop-filter:blur(12px);border-bottom:1px solid rgba(201,168,76,0.15);display:flex;align-items:center;justify-content:space-between;padding:1rem 1.5rem}
+.topbar-logo{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:900;color:var(--gold);cursor:pointer}
+.topbar-actions{display:flex;gap:.6rem;align-items:center}
+.btn{padding:.5rem 1.1rem;border-radius:3px;font-family:'Inter',sans-serif;font-size:.75rem;font-weight:500;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .25s;border:none}
+.btn-ghost{background:transparent;border:1px solid var(--gold-dim);color:var(--gold)}
+.btn-ghost:hover{border-color:var(--gold);background:rgba(201,168,76,.08)}
+.btn-gold{background:var(--gold);color:var(--black)}
+.btn-gold:hover{background:var(--gold-light)}
+.btn-sm{padding:.4rem .9rem;font-size:.7rem}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--gray);display:flex;align-items:center;justify-content:center;padding:.4rem;border-radius:50%;transition:color .2s}
+.icon-btn:hover{color:var(--gold)}
+
+/* ── BOTTOM NAV (app) ── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:rgba(17,17,17,.97);border-top:1px solid rgba(201,168,76,.12);display:none;justify-content:space-around;padding:.6rem 0 calc(.6rem + env(safe-area-inset-bottom))}
+.bottom-nav.visible{display:flex}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:.25rem;cursor:pointer;padding:.2rem .8rem;border-radius:8px;transition:all .2s;background:none;border:none;color:var(--gray)}
+.bnav-item.active,.bnav-item:hover{color:var(--gold)}
+.bnav-icon{font-size:1.3rem}
+.bnav-label{font-size:.6rem;letter-spacing:1px;text-transform:uppercase}
+
+/* ── HERO (landing) ── */
+.hero{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:5rem 1.5rem 8rem;position:relative;overflow:hidden}
+.hero-glow{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);width:500px;height:500px;background:radial-gradient(circle,rgba(201,168,76,.07),transparent 70%);pointer-events:none}
+.eyebrow{font-size:.65rem;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:1.2rem}
+.hero-title{font-family:'Playfair Display',serif;font-size:clamp(2.8rem,12vw,5.5rem);font-weight:900;line-height:1;margin-bottom:1rem}
+.hero-title span{color:var(--gold)}
+.hero-sub{font-size:.95rem;color:var(--gray);font-weight:300;line-height:1.8;max-width:420px;margin:0 auto 2rem}
+.hero-btns{display:flex;flex-direction:column;gap:.8rem;width:100%;max-width:280px}
+.hero-btns .btn{padding:.9rem;font-size:.8rem;border-radius:4px;width:100%}
+.pulse{animation:pulse 2.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.3)}50%{box-shadow:0 0 0 10px rgba(201,168,76,0)}}
+
+/* ── SECTIONS ── */
+.section{padding:3rem 1.5rem}
+.section-label{font-size:.6rem;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem}
+.section-title{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,5vw,2.2rem);font-weight:700;margin-bottom:.6rem}
+.gold-line{width:36px;height:2px;background:var(--gold);margin-bottom:1.8rem;border-radius:2px}
+
+/* ── ABOUT ── */
+.about-card{background:var(--dark2);border:1px solid rgba(201,168,76,.12);border-radius:12px;padding:1.5rem;display:flex;gap:1.2rem;align-items:flex-start;margin-bottom:1.5rem}
+.avatar-circle{width:64px;height:64px;min-width:64px;border-radius:50%;background:rgba(201,168,76,.12);border:1.5px solid var(--gold-dim);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:900;color:var(--gold)}
+.about-name{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:700;color:var(--white);margin-bottom:.2rem}
+.about-role{font-size:.75rem;color:var(--gold);letter-spacing:1px;margin-bottom:.6rem}
+.about-bio{font-size:.85rem;color:var(--gray);line-height:1.7}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;margin-top:1.2rem}
+.stat-box{background:var(--dark3);border-radius:8px;padding:1rem;text-align:center}
+.stat-n{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--gold);font-weight:700}
+.stat-l{font-size:.6rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gray);margin-top:.2rem}
+
+/* ── SOCIAL ── */
+.social-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem}
+.social-card{background:var(--dark2);border:1px solid rgba(201,168,76,.1);border-radius:10px;padding:1rem .6rem;text-align:center;text-decoration:none;transition:all .25s;display:flex;flex-direction:column;align-items:center;gap:.4rem}
+.social-card:hover,.social-card:active{border-color:var(--gold);transform:scale(.97)}
+.soc-icon{width:40px;height:40px;border-radius:50%;background:rgba(201,168,76,.1);display:flex;align-items:center;justify-content:center}
+.soc-icon svg{width:18px;height:18px;fill:var(--gold)}
+.soc-name{font-size:.62rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);font-weight:500}
+
+/* ── COURSES / WORK ── */
+.course-card{background:var(--dark2);border:1px solid rgba(201,168,76,.1);border-radius:12px;overflow:hidden;margin-bottom:1rem;transition:all .25s}
+.course-card:hover{border-color:var(--gold-dim)}
+.course-thumb{height:140px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:2.5rem;position:relative;overflow:hidden}
+.course-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.thumb-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(10,10,10,.8))}
+.course-body{padding:1rem}
+.course-tag{font-size:.6rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.course-title{font-family:'Playfair Display',serif;font-size:1rem;color:var(--white);margin-bottom:.4rem}
+.course-desc{font-size:.8rem;color:var(--gray);line-height:1.6;margin-bottom:.8rem}
+.course-footer{display:flex;align-items:center;justify-content:space-between}
+.course-price{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--gold);font-weight:700}
+.course-price span{font-family:'Inter',sans-serif;font-size:.65rem;color:var(--gray);font-weight:400;margin-left:.2rem}
+
+/* ── PURCHASE PAGE ── */
+.purchase-hero{background:var(--dark2);border-bottom:1px solid rgba(201,168,76,.15);padding:2rem 1.5rem}
+.purchase-title{font-family:'Playfair Display',serif;font-size:1.8rem;color:var(--white);margin-bottom:.4rem}
+.purchase-sub{font-size:.85rem;color:var(--gray)}
+.price-badge{display:inline-block;background:rgba(201,168,76,.12);border:1px solid var(--gold-dim);border-radius:6px;padding:.5rem 1rem;margin:1rem 0}
+.price-big{font-family:'Playfair Display',serif;font-size:2.2rem;color:var(--gold);font-weight:900}
+.price-cur{font-size:.85rem;color:var(--gray);margin-left:.3rem}
+.steps-list{counter-reset:steps;margin:1.5rem 0}
+.step-item{display:flex;gap:.8rem;margin-bottom:1.2rem;padding:1rem;background:var(--dark3);border-radius:8px;border-left:2px solid var(--gold-dim)}
+.step-num{width:28px;height:28px;min-width:28px;border-radius:50%;background:var(--gold);color:var(--black);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700}
+.step-text h4{font-size:.85rem;color:var(--white);margin-bottom:.2rem;font-weight:500}
+.step-text p{font-size:.78rem;color:var(--gray);line-height:1.5}
+.pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin:1.2rem 0}
+.pay-method{background:var(--dark3);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:1rem;text-align:center;cursor:pointer;transition:all .2s}
+.pay-method.selected{border-color:var(--gold);background:rgba(201,168,76,.08)}
+.pay-method-name{font-size:.8rem;color:var(--white);font-weight:500;margin-top:.4rem}
+.pay-method-icon{font-size:1.5rem}
+.proof-upload{border:1.5px dashed rgba(201,168,76,.3);border-radius:8px;padding:2rem;text-align:center;cursor:pointer;transition:all .2s;margin:1rem 0}
+.proof-upload:hover{border-color:var(--gold);background:rgba(201,168,76,.04)}
+.proof-upload p{font-size:.8rem;color:var(--gray);margin-top:.5rem}
+.proof-upload .icon{font-size:2rem}
+.proof-preview{display:none;border-radius:8px;overflow:hidden;margin:1rem 0}
+.proof-preview img{width:100%;border-radius:8px}
+
+/* ── DASHBOARD ── */
+.dash-header{background:var(--dark2);border-bottom:1px solid rgba(201,168,76,.12);padding:1.5rem}
+.dash-welcome{font-size:.75rem;color:var(--gray);letter-spacing:1px;text-transform:uppercase}
+.dash-name{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--white);margin:.2rem 0}
+.dash-status{display:inline-flex;align-items:center;gap:.4rem;font-size:.7rem;padding:.3rem .7rem;border-radius:20px;margin-top:.4rem}
+.dash-status.active{background:rgba(46,204,113,.12);color:var(--green);border:1px solid rgba(46,204,113,.2)}
+.dash-status.pending{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.2)}
+.dash-status.none{background:rgba(136,136,136,.1);color:var(--gray);border:1px solid rgba(136,136,136,.15)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.dash-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:.8rem;padding:1.2rem 1.5rem}
+.dash-card{background:var(--dark2);border:1px solid rgba(201,168,76,.1);border-radius:10px;padding:1rem;text-align:center}
+.dash-card-n{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--gold);font-weight:700}
+.dash-card-l{font-size:.6rem;color:var(--gray);letter-spacing:1px;text-transform:uppercase;margin-top:.2rem}
+.my-courses{padding:0 1.5rem 6rem}
+.my-course-item{background:var(--dark2);border:1px solid rgba(201,168,76,.1);border-radius:10px;padding:1rem;margin-bottom:.8rem;display:flex;align-items:center;gap:1rem;transition:all .2s}
+.my-course-item:hover{border-color:var(--gold-dim)}
+.course-icon-box{width:48px;height:48px;min-width:48px;border-radius:8px;background:rgba(201,168,76,.1);display:flex;align-items:center;justify-content:center;font-size:1.4rem}
+.course-item-title{font-size:.9rem;color:var(--white);font-weight:500;margin-bottom:.2rem}
+.course-item-sub{font-size:.75rem;color:var(--gray)}
+.course-item-badge{margin-left:auto;font-size:.65rem;padding:.25rem .6rem;border-radius:20px;white-space:nowrap}
+.badge-green{background:rgba(46,204,113,.12);color:var(--green);border:1px solid rgba(46,204,113,.2)}
+.badge-gold{background:rgba(201,168,76,.12);color:var(--gold);border:1px solid rgba(201,168,76,.2)}
+.badge-gray{background:rgba(136,136,136,.1);color:var(--gray);border:1px solid rgba(136,136,136,.15)}
+.profile-section{padding:1.5rem;border-bottom:1px solid rgba(201,168,76,.1)}
+.profile-card{background:var(--dark2);border:1px solid rgba(201,168,76,.12);border-radius:12px;padding:1.5rem;display:flex;align-items:center;gap:1rem;margin-bottom:1.2rem}
+.profile-avatar{width:60px;height:60px;min-width:60px;border-radius:50%;background:rgba(201,168,76,.12);border:1.5px solid var(--gold-dim);display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:900;color:var(--gold)}
+.profile-info h3{font-size:1rem;color:var(--white);font-weight:500}
+.profile-info p{font-size:.8rem;color:var(--gray);margin-top:.2rem}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:1rem 0;border-bottom:1px solid rgba(201,168,76,.06)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:.85rem;color:var(--white)}
+.setting-sub{font-size:.75rem;color:var(--gray);margin-top:.1rem}
+.setting-arrow{color:var(--gray);font-size:1rem}
+
+/* ── AUTH MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:flex-end;justify-content:center}
+.overlay.open{display:flex}
+.sheet{background:var(--dark2);border-radius:20px 20px 0 0;border-top:1px solid rgba(201,168,76,.2);padding:2rem 1.5rem calc(2rem + env(safe-area-inset-bottom));width:100%;max-width:500px;animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-handle{width:36px;height:3px;background:var(--gray2);border-radius:2px;margin:0 auto 1.5rem}
+.sheet-title{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--white);margin-bottom:.3rem}
+.sheet-sub{font-size:.8rem;color:var(--gray);margin-bottom:1.5rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:.65rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem}
+.field input{width:100%;padding:.8rem 1rem;background:var(--dark3);border:1px solid rgba(201,168,76,.2);color:var(--white);font-family:'Inter',sans-serif;font-size:.9rem;border-radius:6px;outline:none;transition:border-color .25s}
+.field input:focus{border-color:var(--gold)}
+.field input::placeholder{color:var(--gray2)}
+.sheet-btn{width:100%;padding:.95rem;background:var(--gold);color:var(--black);font-family:'Inter',sans-serif;font-size:.8rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;border:none;border-radius:6px;cursor:pointer;margin-top:.5rem;transition:background .25s}
+.sheet-btn:hover{background:var(--gold-light)}
+.sheet-switch{text-align:center;margin-top:1rem;font-size:.8rem;color:var(--gray)}
+.sheet-switch a{color:var(--gold);cursor:pointer}
+.success-check{text-align:center;padding:1rem 0;display:none}
+.success-check .big{font-size:3rem;margin-bottom:.5rem}
+.success-check p{color:var(--gold);font-size:1rem;font-weight:500}
+.success-check span{color:var(--gray);font-size:.8rem}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--dark3);border:1px solid rgba(201,168,76,.3);color:var(--white);padding:.7rem 1.4rem;border-radius:30px;font-size:.8rem;opacity:0;pointer-events:none;transition:all .3s;z-index:300;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── UTILS ── */
+.text-gold{color:var(--gold)}
+.text-gray{color:var(--gray)}
+.mt1{margin-top:1rem}.mb1{margin-bottom:1rem}
+.flex-between{display:flex;align-items:center;justify-content:space-between}
+.divider{height:1px;background:rgba(201,168,76,.08);margin:1rem 0}
+.back-btn{display:flex;align-items:center;gap:.4rem;background:none;border:none;color:var(--gray);font-family:'Inter',sans-serif;font-size:.8rem;cursor:pointer;padding:0;margin-bottom:1rem}
+.back-btn:hover{color:var(--gold)}
+@media(min-width:600px){
+  .social-grid{grid-template-columns:repeat(6,1fr)}
+  .hero-btns{flex-direction:row;max-width:100%}
+  .hero-btns .btn{width:auto;flex:1}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LANDING PAGE ══════════════ -->
+<div class="page active" id="page-landing">
+  <nav class="topbar">
+    <div class="topbar-logo" onclick="showPage('page-landing')">Ethio Empire</div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openSheet('signin')">Sign in</button>
+      <button class="btn btn-gold btn-sm" onclick="openSheet('signup')">Sign up</button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-glow"></div>
+    <p class="eyebrow">Ethiopia's Digital Empire</p>
+    <h1 class="hero-title">Ethio<br/><span>Empire</span></h1>
+    <p class="hero-sub">Digital educator & content creator empowering Ethiopians through high-quality tutorials, videos, and online courses.</p>
+    <div class="hero-btns">
+      <button class="btn btn-gold pulse" onclick="showPage('page-courses')">Browse Courses</button>
+      <button class="btn btn-ghost" onclick="scrollToAbout()">About Me</button>
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <div class="section" id="about-section">
+    <p class="section-label">Who I Am</p>
+    <h2 class="section-title">About Me</h2>
+    <div class="gold-line"></div>
+    <div class="about-card">
+      <div class="avatar-circle">EE</div>
+      <div>
+        <div class="about-name">Ethio Empire</div>
+        <div class="about-role">Digital Educator & Content Creator</div>
+        <div class="about-bio">I create high-quality tutorial videos, guides, and digital courses to help Ethiopians grow their skills and income online. My content is practical, affordable, and built for real results.</div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-n">5+</div><div class="stat-l">Users</div></div>
+      <div class="stat-box"><div class="stat-n">10+</div><div class="stat-l">Tutorials</div></div>
+      <div class="stat-box"><div class="stat-n">6</div><div class="stat-l">Platforms</div></div>
+    </div>
+  </div>
+
+  <!-- SOCIAL -->
+  <div class="section">
+    <p class="section-label">Find Me Online</p>
+    <h2 class="section-title">Social Media</h2>
+    <div class="gold-line"></div>
+    <div class="social-grid">
+      <a href="https://t.me/EthioEmpire" target="_blank" class="social-card">
+        <div class="soc-icon"><svg viewBox="0 0 24 24"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg></div>
+        <div class="soc-name">Telegram</div>
+      </a>
+      <a href="https://tiktok.com/@EthioEmpire" target="_blank" class="social-card">
+        <div class="soc-icon"><svg viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.78 1.52V6.74a4.85 4.85 0 01-1.01-.05z"/></svg></div>
+        <div class="soc-name">TikTok</div>
+      </a>
+      <a href="https://youtube.com/@EthioEmpire" target="_blank" class="social-card">
+        <div class="soc-icon"><svg viewBox="0 0 24 24"><path d="M23.495 6.205a3.007 3.007 0 00-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 00.527 6.205a31.247 31.247 0 00-.522 5.805 31.247 31.247 0 00.522 5.783 3.007 3.007 0 002.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 002.088-2.088 31.247 31.247 0 00.5-5.783 31.247 31.247 0 00-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/></svg></div>
+        <div class="soc-name">YouTube</div>
+      </a>
+      <a href="https://instagram.com/EthioEmpire" target="_blank" class="social-card">
+        <div class="soc-icon"><svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></div>
+        <div class="soc-name">Instagram</div>
+      </a>
+      <a href="https://facebook.com/EthioEmpire" target="_blank" class="social-card">
+        <div class="soc-icon"><svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
+        <div class="soc-name">Facebook</div>
+      </a>
+      <a href="https://twitter.com/EthioEmpire" target="_blank" class="social-card">
+        <div class="soc-icon"><svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></div>
+        <div class="soc-name">Twitter</div>
+      </a>
+    </div>
+  </div>
+
+  <!-- COURSES PREVIEW -->
+  <div class="section">
+    <div class="flex-between mb1">
+      <div>
+        <p class="section-label">What I Offer</p>
+        <h2 class="section-title">Courses</h2>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="showPage('page-courses')">See all</button>
+    </div>
+    <div class="gold-line"></div>
+    <div class="course-card" onclick="showPurchase('bot')">
+      <div class="course-thumb">🎬<div class="thumb-overlay"></div></div>
+      <div class="course-body">
+        <div class="course-tag">Tutorial Series</div>
+        <div class="course-title">Ethio Empire Bot Tutorial</div>
+        <div class="course-desc">Build and launch a Telegram bot for selling digital content in Ethiopia.</div>
+        <div class="course-footer">
+          <div class="course-price">500 <span>ETB</span></div>
+          <button class="btn btn-gold btn-sm">Buy Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:2rem"></div>
+</div>
+
+<!-- ══════════════ COURSES PAGE ══════════════ -->
+<div class="page" id="page-courses">
+  <nav class="topbar">
+    <div class="topbar-logo" onclick="showPage('page-landing')">Ethio Empire</div>
+    <div class="topbar-actions" id="courses-nav-actions">
+      <button class="btn btn-gold btn-sm" onclick="openSheet('signup')" id="courses-signup-btn">Sign up</button>
+    </div>
+  </nav>
+  <div class="section">
+    <p class="section-label">All Courses</p>
+    <h2 class="section-title">Learn & Grow</h2>
+    <div class="gold-line"></div>
+
+    <div class="course-card" onclick="showPurchase('bot')">
+      <div class="course-thumb">🎬<div class="thumb-overlay"></div></div>
+      <div class="course-body">
+        <div class="course-tag">Tutorial Series</div>
+        <div class="course-title">Ethio Empire Bot Tutorial</div>
+        <div class="course-desc">Step-by-step guide to building and launching a Telegram bot for selling digital content — from setup to payment and automatic delivery.</div>
+        <div class="course-footer">
+          <div class="course-price">500 <span>ETB</span></div>
+          <button class="btn btn-gold btn-sm">Buy Now</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-card" onclick="showPurchase('phone')">
+      <div class="course-thumb">📱<div class="thumb-overlay"></div></div>
+      <div class="course-body">
+        <div class="course-tag">Digital Business</div>
+        <div class="course-title">Online Income From Your Phone</div>
+        <div class="course-desc">Build a sustainable online income using only your smartphone — no PC, no office, no large capital required.</div>
+        <div class="course-footer">
+          <div class="course-price">350 <span>ETB</span></div>
+          <button class="btn btn-gold btn-sm">Buy Now</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="course-card">
+      <div class="course-thumb">🚀<div class="thumb-overlay"></div></div>
+      <div class="course-body">
+        <div class="course-tag">Coming Soon</div>
+        <div class="course-title">Ethio Empire Academy</div>
+        <div class="course-desc">A full learning platform launching soon — video lessons, certificates, and community support for Ethiopian creators.</div>
+        <div class="course-footer">
+          <div class="course-price" style="color:var(--gray)">Coming Soon</div>
+          <button class="btn btn-ghost btn-sm" disabled style="opacity:.5;cursor:not-allowed">Notify Me</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div style="height:5rem"></div>
+</div>
+
+<!-- ══════════════ PURCHASE PAGE ══════════════ -->
+<div class="page" id="page-purchase">
+  <nav class="topbar">
+    <button class="icon-btn" onclick="showPage('page-courses')" style="color:var(--gray)">←</button>
+    <div class="topbar-logo">Purchase</div>
+    <div style="width:36px"></div>
+  </nav>
+  <div class="purchase-hero">
+    <div id="purchase-tag" style="font-size:.65rem;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:.4rem"></div>
+    <div class="purchase-title" id="purchase-title"></div>
+    <div class="purchase-sub" id="purchase-sub"></div>
+    <div class="price-badge">
+      <span class="price-big" id="purchase-price"></span>
+      <span class="price-cur">ETB</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">How to pay</p>
+    <h2 class="section-title" style="font-size:1.3rem">Choose payment method</h2>
+    <div class="gold-line"></div>
+    <div class="pay-methods">
+      <div class="pay-method selected" onclick="selectMethod(this,'telebirr')">
+        <div class="pay-method-icon">📲</div>
+        <div class="pay-method-name">Telebirr</div>
+      </div>
+      <div class="pay-method" onclick="selectMethod(this,'cbe')">
+        <div class="pay-method-icon">🏦</div>
+        <div class="pay-method-name">CBE</div>
+      </div>
+    </div>
+
+    <div id="pay-details-telebirr" style="background:var(--dark3);border-radius:8px;padding:1rem;margin-bottom:1rem">
+      <p style="font-size:.7rem;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem">Telebirr Details</p>
+      <p style="font-size:.9rem;color:var(--white)">Phone: <strong>09XXXXXXXX</strong></p>
+      <p style="font-size:.8rem;color:var(--gray);margin-top:.3rem">Account Name: Ethio Empire</p>
+    </div>
+    <div id="pay-details-cbe" style="display:none;background:var(--dark3);border-radius:8px;padding:1rem;margin-bottom:1rem">
+      <p style="font-size:.7rem;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:.6rem">CBE Account</p>
+      <p style="font-size:.9rem;color:var(--white)">Account: <strong>1000XXXXXXXXX</strong></p>
+      <p style="font-size:.8rem;color:var(--gray);margin-top:.3rem">Account Name: Ethio Empire</p>
+    </div>
+
+    <div class="steps-list">
+      <div class="step-item"><div class="step-num">1</div><div class="step-text"><h4>Send the payment</h4><p>Transfer the exact amount to the account above.</p></div></div>
+      <div class="step-item"><div class="step-num">2</div><div class="step-text"><h4>Take a screenshot</h4><p>Screenshot the payment confirmation screen.</p></div></div>
+      <div class="step-item"><div class="step-num">3</div><div class="step-text"><h4>Upload proof below</h4><p>We'll verify and give you access within minutes.</p></div></div>
+    </div>
+
+    <input type="file" id="proof-input" accept="image/*" style="display:none" onchange="previewProof(this)"/>
+    <div class="proof-upload" onclick="document.getElementById('proof-input').click()">
+      <div class="icon">📷</div>
+      <p>Tap to upload your payment screenshot</p>
+    </div>
+    <div class="proof-preview" id="proof-preview">
+      <img id="proof-img" src="" alt="Payment proof"/>
+    </div>
+
+    <button class="btn btn-gold" id="submit-proof-btn" style="width:100%;padding:.95rem;font-size:.85rem;margin-top:.5rem;display:none" onclick="submitProof()">Submit for review</button>
+
+    <div id="submitted-msg" style="display:none;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.25);border-radius:8px;padding:1.2rem;text-align:center;margin-top:1rem">
+      <p style="font-size:1.5rem;margin-bottom:.4rem">⏳</p>
+      <p style="font-size:.9rem;color:var(--gold);font-weight:500">Payment submitted!</p>
+      <p style="font-size:.8rem;color:var(--gray);margin-top:.3rem">You'll receive your course access on Telegram once approved by the owner.</p>
+    </div>
+  </div>
+  <div style="height:5rem"></div>
+</div>
+
+<!-- ══════════════ DASHBOARD PAGE ══════════════ -->
+<div class="page" id="page-dashboard">
+  <nav class="topbar">
+    <div class="topbar-logo">My Account</div>
+    <button class="btn btn-ghost btn-sm" onclick="signOut()">Sign out</button>
+  </nav>
+
+  <div class="dash-header">
+    <div class="dash-welcome">Welcome back</div>
+    <div class="dash-name" id="dash-name">Loading...</div>
+    <div class="dash-status active" id="dash-status">
+      <div class="status-dot"></div>
+      <span id="dash-status-text">Active Member</span>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="display:flex;border-bottom:1px solid rgba(201,168,76,.12);background:var(--dark)">
+    <button class="tab-btn active" id="tab-courses" onclick="switchTab('courses')" style="flex:1;padding:.9rem;background:none;border:none;color:var(--gold);font-family:'Inter',sans-serif;font-size:.75rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid var(--gold)">Courses</button>
+    <button class="tab-btn" id="tab-profile" onclick="switchTab('profile')" style="flex:1;padding:.9rem;background:none;border:none;color:var(--gray);font-family:'Inter',sans-serif;font-size:.75rem;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent">Profile</button>
+  </div>
+
+  <!-- COURSES TAB -->
+  <div id="tab-content-courses">
+    <div class="dash-cards">
+      <div class="dash-card"><div class="dash-card-n" id="dc-purchased">0</div><div class="dash-card-l">Purchased</div></div>
+      <div class="dash-card"><div class="dash-card-n" id="dc-pending">0</div><div class="dash-card-l">Pending</div></div>
+      <div class="dash-card"><div class="dash-card-n">10+</div><div class="dash-card-l">Available</div></div>
+    </div>
+    <div class="my-courses" id="my-courses-list"></div>
+  </div>
+
+  <!-- PROFILE TAB -->
+  <div id="tab-content-profile" style="display:none;padding-bottom:6rem">
+    <div class="profile-section">
+      <div class="profile-card">
+        <div class="profile-avatar" id="profile-avatar-initials">EE</div>
+        <div class="profile-info">
+          <h3 id="profile-name-display">Ethio Empire</h3>
+          <p id="profile-email-display">user@example.com</p>
+        </div>
+      </div>
+    </div>
+    <div class="section" style="padding-top:1rem">
+      <p class="section-label">Account Settings</p>
+      <div class="setting-row"><div><div class="setting-label">Full name</div><div class="setting-sub" id="setting-name">—</div></div><div class="setting-arrow">›</div></div>
+      <div class="setting-row"><div><div class="setting-label">Email address</div><div class="setting-sub" id="setting-email">—</div></div><div class="setting-arrow">›</div></div>
+      <div class="setting-row"><div><div class="setting-label">Telegram</div><div class="setting-sub">Connect for course delivery</div></div><div class="setting-arrow">›</div></div>
+      <div class="divider"></div>
+      <div class="setting-row" onclick="showPage('page-courses')" style="cursor:pointer"><div><div class="setting-label">Browse courses</div><div class="setting-sub">See all available tutorials</div></div><div class="setting-arrow">›</div></div>
+      <div class="setting-row" style="cursor:pointer" onclick="showToast('Coming soon!')"><div><div class="setting-label">Notifications</div><div class="setting-sub">Manage alerts</div></div><div class="setting-arrow">›</div></div>
+      <div class="divider"></div>
+      <button onclick="signOut()" style="width:100%;padding:.9rem;background:rgba(231,76,60,.08);border:1px solid rgba(231,76,60,.2);color:#E74C3C;border-radius:8px;font-family:'Inter',sans-serif;font-size:.85rem;cursor:pointer;margin-top:.5rem">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ BOTTOM NAV ══════════════ -->
+<div class="bottom-nav" id="bottom-nav">
+  <button class="bnav-item active" id="bnav-home" onclick="showPage('page-landing');setActiveNav('bnav-home')">
+    <span class="bnav-icon">🏠</span><span class="bnav-label">Home</span>
+  </button>
+  <button class="bnav-item" id="bnav-courses" onclick="showPage('page-courses');setActiveNav('bnav-courses')">
+    <span class="bnav-icon">🎬</span><span class="bnav-label">Courses</span>
+  </button>
+  <button class="bnav-item" id="bnav-dash" onclick="requireLogin()">
+    <span class="bnav-icon">👤</span><span class="bnav-label">Account</span>
+  </button>
+</div>
+
+<!-- ══════════════ AUTH SHEET ══════════════ -->
+<div class="overlay" id="auth-overlay" onclick="closeSheetOnBg(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div id="signin-form">
+      <div class="sheet-title">Welcome back</div>
+      <div class="sheet-sub">Sign in to your account</div>
+      <div class="field"><label>Email</label><input type="email" id="si-email" placeholder="you@example.com"/></div>
+      <div class="field"><label>Password</label><input type="password" id="si-pass" placeholder="Your password"/></div>
+      <button class="sheet-btn" onclick="handleSignin()">Sign in</button>
+      <div class="sheet-switch">No account? <a onclick="openSheet('signup')">Sign up free</a></div>
+    </div>
+    <div id="signup-form" style="display:none">
+      <div class="sheet-title">Join Ethio Empire</div>
+      <div class="sheet-sub">Create your free account</div>
+      <div class="field"><label>Full name</label><input type="text" id="su-name" placeholder="Your full name"/></div>
+      <div class="field"><label>Email</label><input type="email" id="su-email" placeholder="you@example.com"/></div>
+      <div class="field"><label>Password</label><input type="password" id="su-pass" placeholder="Create a password"/></div>
+      <button class="sheet-btn" onclick="handleSignup()">Create account</button>
+      <div class="sheet-switch">Already have an account? <a onclick="openSheet('signin')">Sign in</a></div>
+    </div>
+    <div class="success-check" id="auth-success">
+      <div class="big">✅</div>
+      <p id="success-msg-text">Signed in!</p>
+      <span id="success-msg-sub">Taking you to your dashboard...</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+var currentUser = null;
+var purchases = [];
+var selectedPayMethod = 'telebirr';
+var currentCourse = null;
+
+var courses = {
+  bot:  {tag:'Tutorial Series', title:'Ethio Empire Bot Tutorial',       sub:'Build and launch a Telegram bot for selling digital content.',   price:'500'},
+  phone:{tag:'Digital Business', title:'Online Income From Your Phone',  sub:'Build a sustainable online income using only your smartphone.',  price:'350'},
+};
+
+// ── PAGE NAV ──
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  var isApp = currentUser !== null;
+  var nav = document.getElementById('bottom-nav');
+  if(id==='page-landing'||id==='page-courses'||id==='page-purchase'||id==='page-dashboard'){
+    nav.classList.add('visible');
+  }
+  if(id==='page-dashboard') updateDashboard();
+}
+
+function setActiveNav(id){
+  document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function scrollToAbout(){
+  showPage('page-landing');
+  setTimeout(()=>document.getElementById('about-section').scrollIntoView({behavior:'smooth'}),100);
+}
+
+// ── PURCHASE ──
+function showPurchase(id){
+  currentCourse = id;
+  var c = courses[id];
+  document.getElementById('purchase-tag').textContent = c.tag;
+  document.getElementById('purchase-title').textContent = c.title;
+  document.getElementById('purchase-sub').textContent = c.sub;
+  document.getElementById('purchase-price').textContent = c.price;
+  document.getElementById('submitted-msg').style.display='none';
+  document.getElementById('submit-proof-btn').style.display='none';
+  document.getElementById('proof-preview').style.display='none';
+  document.getElementById('proof-input').value='';
+  showPage('page-purchase');
+}
+
+function selectMethod(el, method){
+  document.querySelectorAll('.pay-method').forEach(m=>m.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedPayMethod = method;
+  document.getElementById('pay-details-telebirr').style.display = method==='telebirr'?'block':'none';
+  document.getElementById('pay-details-cbe').style.display = method==='cbe'?'block':'none';
+}
+
+function previewProof(input){
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e){
+    document.getElementById('proof-img').src = e.target.result;
+    document.getElementById('proof-preview').style.display='block';
+    document.getElementById('submit-proof-btn').style.display='block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitProof(){
+  if(!currentUser){openSheet('signup');showToast('Sign up first to submit!');return;}
+  var c = courses[currentCourse];
+  purchases.push({id:currentCourse, title:c.title, status:'pending', price:c.price});
+  document.getElementById('submit-proof-btn').style.display='none';
+  document.getElementById('submitted-msg').style.display='block';
+  showToast('Proof submitted! Awaiting approval.');
+  updateDashboard();
+}
+
+// ── AUTH ──
+function openSheet(type){
+  document.getElementById('signin-form').style.display = type==='signin'?'block':'none';
+  document.getElementById('signup-form').style.display = type==='signup'?'block':'none';
+  document.getElementById('auth-success').style.display='none';
+  document.getElementById('auth-overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeSheet(){
+  document.getElementById('auth-overlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+function closeSheetOnBg(e){
+  if(e.target===document.getElementById('auth-overlay')) closeSheet();
+}
+
+function requireLogin(){
+  if(currentUser){showPage('page-dashboard');setActiveNav('bnav-dash');}
+  else{openSheet('signin');}
+}
+
+function handleSignin(){
+  var e=document.getElementById('si-email').value.trim();
+  var p=document.getElementById('si-pass').value;
+  if(!e||!p){showToast('Please fill all fields');return;}
+  currentUser={name:e.split('@')[0],email:e};
+  showAuthSuccess('Welcome back!','Taking you to your dashboard...');
+  setTimeout(()=>{closeSheet();showPage('page-dashboard');setActiveNav('bnav-dash');},1800);
+}
+
+function handleSignup(){
+  var n=document.getElementById('su-name').value.trim();
+  var e=document.getElementById('su-email').value.trim();
+  var p=document.getElementById('su-pass').value;
+  if(!n||!e||!p){showToast('Please fill all fields');return;}
+  currentUser={name:n,email:e};
+  showAuthSuccess('Account created!','Welcome to Ethio Empire!');
+  setTimeout(()=>{closeSheet();showPage('page-dashboard');setActiveNav('bnav-dash');},1800);
+}
+
+function showAuthSuccess(msg,sub){
+  document.getElementById('signin-form').style.display='none';
+  document.getElementById('signup-form').style.display='none';
+  document.getElementById('auth-success').style.display='block';
+  document.getElementById('success-msg-text').textContent=msg;
+  document.getElementById('success-msg-sub').textContent=sub;
+}
+
+function signOut(){
+  currentUser=null;purchases=[];
+  showPage('page-landing');setActiveNav('bnav-home');
+  showToast('Signed out successfully');
+}
+
+// ── DASHBOARD ──
+function updateDashboard(){
+  if(!currentUser) return;
+  var name = currentUser.name;
+  document.getElementById('dash-name').textContent = name;
+  var initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  document.getElementById('profile-avatar-initials').textContent = initials;
+  document.getElementById('profile-name-display').textContent = name;
+  document.getElementById('profile-email-display').textContent = currentUser.email;
+  document.getElementById('setting-name').textContent = name;
+  document.getElementById('setting-email').textContent = currentUser.email;
+  var approved = purchases.filter(p=>p.status==='approved');
+  var pending  = purchases.filter(p=>p.status==='pending');
+  document.getElementById('dc-purchased').textContent = approved.length;
+  document.getElementById('dc-pending').textContent   = pending.length;
+  if(approved.length>0){
+    document.getElementById('dash-status').className='dash-status active';
+    document.getElementById('dash-status-text').textContent='Active Member';
+  } else if(pending.length>0){
+    document.getElementById('dash-status').className='dash-status pending';
+    document.getElementById('dash-status-text').textContent='Payment Pending';
+  } else {
+    document.getElementById('dash-status').className='dash-status none';
+    document.getElementById('dash-status-text').textContent='No courses yet';
+  }
+  var list = document.getElementById('my-courses-list');
+  if(purchases.length===0){
+    list.innerHTML='<div style="text-align:center;padding:2rem 1rem"><p style="font-size:2rem;margin-bottom:.8rem">🎬</p><p style="color:var(--gray);font-size:.9rem">No courses yet</p><button class="btn btn-gold" style="margin-top:1rem" onclick="showPage(\'page-courses\');setActiveNav(\'bnav-courses\')">Browse Courses</button></div>';
+    return;
+  }
+  list.innerHTML = purchases.map(p=>`
+    <div class="my-course-item">
+      <div class="course-icon-box">🎬</div>
+      <div>
+        <div class="course-item-title">${p.title}</div>
+        <div class="course-item-sub">${p.price} ETB</div>
+      </div>
+      <span class="course-item-badge ${p.status==='approved'?'badge-green':p.status==='pending'?'badge-gold':'badge-gray'}">${p.status==='approved'?'✓ Active':p.status==='pending'?'⏳ Pending':'—'}</span>
+    </div>
+  `).join('');
+}
+
+function switchTab(tab){
+  document.getElementById('tab-content-courses').style.display = tab==='courses'?'block':'none';
+  document.getElementById('tab-content-profile').style.display = tab==='profile'?'block':'none';
+  document.getElementById('tab-courses').style.color = tab==='courses'?'var(--gold)':'var(--gray)';
+  document.getElementById('tab-courses').style.borderBottom = tab==='courses'?'2px solid var(--gold)':'2px solid transparent';
+  document.getElementById('tab-profile').style.color = tab==='profile'?'var(--gold)':'var(--gray)';
+  document.getElementById('tab-profile').style.borderBottom = tab==='profile'?'2px solid var(--gold)':'2px solid transparent';
+}
+
+// ── TOAST ──
+function showToast(msg){
+  var t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ── INIT ──
+document.getElementById('bottom-nav').classList.add('visible');
+</script>
+</body>
+</html>
