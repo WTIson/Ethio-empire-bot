@@ -3,7 +3,7 @@ Ethio Empire Bot
 -----------------
 Features:
 1. Tutorial course sales — user pays, owner approves, bot sends private channel link
-2. 🎵 Shazam feature — user sends voice/audio, bot identifies the song
+2. 🎵 Music search — user types artist/song name, bot shows list, user picks, bot sends audio
 
 Owner commands:
   /setprice 500         - change the price
@@ -15,9 +15,9 @@ Owner commands:
 import json
 import logging
 import os
-import tempfile
-import aiohttp
+import asyncio
 
+import yt_dlp
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -33,15 +33,16 @@ from telegram.ext import (
 # CONFIG — EDIT THESE LINES
 # ----------------------------------------------------------------------
 
-BOT_TOKEN  = "7864255983:AAE5cU2QIPb9cD01KUlruK8awRkA_JB9BF8"   # from @BotFather
-OWNER_ID   = 6974850092                   # your numeric Telegram user ID
-AUDD_TOKEN = "test"                      # free key = "test" (limited); get a real one free at audd.io
+BOT_TOKEN = "PUT_YOUR_BOT_TOKEN_HERE"   # from @BotFather
+OWNER_ID  = 123456789                   # your numeric Telegram user ID
 
 # ----------------------------------------------------------------------
 # DEFAULT DATA
 # ----------------------------------------------------------------------
 
-DATA_FILE = "data.json"
+DATA_FILE    = "data.json"
+MUSIC_FOLDER = "downloads"
+os.makedirs(MUSIC_FOLDER, exist_ok=True)
 
 DEFAULT_DATA = {
     "price": 500,
@@ -64,6 +65,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# In-memory search results per user: {user_id: [video_info, ...]}
+user_search_cache = {}
+
 # ----------------------------------------------------------------------
 # DATABASE HELPERS
 # ----------------------------------------------------------------------
@@ -80,6 +84,54 @@ def save_data(data: dict) -> None:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 # ----------------------------------------------------------------------
+# YOUTUBE SEARCH HELPER
+# ----------------------------------------------------------------------
+
+def search_youtube(query: str, max_results: int = 8) -> list:
+    """Search YouTube and return list of {title, url, duration, channel}."""
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "default_search": f"ytsearch{max_results}",
+        "skip_download": True,
+    }
+    results = []
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(query, download=False)
+        if "entries" in info:
+            for entry in info["entries"]:
+                if entry:
+                    duration = entry.get("duration", 0)
+                    mins = int(duration // 60) if duration else 0
+                    secs = int(duration % 60) if duration else 0
+                    results.append({
+                        "title":    entry.get("title", "Unknown"),
+                        "url":      f"https://www.youtube.com/watch?v={entry.get('id','')}",
+                        "id":       entry.get("id", ""),
+                        "duration": f"{mins}:{secs:02d}" if duration else "?:??",
+                        "channel":  entry.get("channel") or entry.get("uploader", ""),
+                    })
+    return results
+
+def download_audio(video_url: str, output_path: str) -> str:
+    """Download audio from YouTube video. Returns the file path."""
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "format": "bestaudio/best",
+        "outtmpl": output_path + ".%(ext)s",
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([video_url])
+    return output_path + ".mp3"
+
+# ----------------------------------------------------------------------
 # USER HANDLERS
 # ----------------------------------------------------------------------
 
@@ -90,24 +142,39 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if user_id in data["approved"]:
         await update.message.reply_text(
             f"✅ *Welcome back!*\n\nYou already have access.\n\n"
-            f"🔗 Join your private channel here:\n{data['channel_link']}\n\n"
-            f"🎵 You can also send me any voice/audio message to identify a song!",
+            f"🔗 {data['channel_link']}\n\n"
+            f"🎵 *Music Search:* Just type any artist or song name and I'll find it for you!",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 I Want To Pay", callback_data="show_payment")],
-        [InlineKeyboardButton("🎵 Identify a Song", callback_data="shazam_info")],
+        [InlineKeyboardButton("💳 Buy Course Access", callback_data="show_payment")],
+        [InlineKeyboardButton("🎵 Search Music (Free)", callback_data="music_help")],
     ])
     await update.message.reply_text(
         f"🎬 *Welcome to Ethio Empire!*\n\n"
         f"Get full access to *all* tutorial videos, PDFs, and tests.\n\n"
         f"💰 Price: *{data['price']} {data['currency']}*\n\n"
-        f"🎵 *FREE:* Send me any voice message or audio to identify a song!\n\n"
-        f"Tap a button below to get started.",
+        f"🎵 *FREE:* Type any artist or song name to search and download music!\n\n"
+        f"Example: just type *Leul Sisay* or *Teddy Afro*",
         parse_mode=ParseMode.MARKDOWN,
         reply_markup=keyboard,
+    )
+
+async def music_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text(
+        "🎵 *Music Search — FREE!*\n\n"
+        "Just type the name of any artist or song directly in the chat.\n\n"
+        "*Examples:*\n"
+        "• Leul Sisay\n"
+        "• Teddy Afro\n"
+        "• Zeritu Kebede\n"
+        "• Yegna\n\n"
+        "I will show you a list of songs to choose from! 🎶",
+        parse_mode=ParseMode.MARKDOWN,
     )
 
 async def show_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -117,27 +184,127 @@ async def show_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await query.message.reply_text(
         f"💰 *Price: {data['price']} {data['currency']}*\n\n"
         f"{data['payment_instructions']}\n\n"
-        f"📸 Once paid, send your receipt screenshot here and we will verify it.",
+        f"📸 Once paid, send your receipt screenshot here.",
         parse_mode=ParseMode.MARKDOWN,
     )
 
-async def shazam_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# ----------------------------------------------------------------------
+# 🎵 MUSIC SEARCH & DOWNLOAD
+# ----------------------------------------------------------------------
+
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Any text message is treated as a music search query."""
+    query = update.message.text.strip()
+    user_id = update.effective_user.id
+
+    if not query:
+        return
+
+    searching_msg = await update.message.reply_text(
+        f"🔍 Searching for *{query}*...",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+    try:
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(None, search_youtube, query)
+
+        if not results:
+            await searching_msg.edit_text("❌ No results found. Try a different search.")
+            return
+
+        # Cache results for this user
+        user_search_cache[user_id] = results
+
+        # Build inline keyboard — one button per result
+        buttons = []
+        for i, r in enumerate(results):
+            label = f"• {r['duration']} • {r['title'][:45]}"
+            buttons.append([InlineKeyboardButton(label, callback_data=f"play_{i}")])
+
+        buttons.append([InlineKeyboardButton("+ More tracks", callback_data=f"more_{query}")])
+
+        keyboard = InlineKeyboardMarkup(buttons)
+        await searching_msg.edit_text(
+            f"🎵 Results for *{query}*:",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=keyboard,
+        )
+
+    except Exception as e:
+        logger.error("Search error: %s", e)
+        await searching_msg.edit_text(
+            "⚠️ Search failed. Please try again in a moment."
+        )
+
+async def play_song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """User taps a song from the list — download and send as audio."""
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text(
-        "🎵 *Song Identifier — FREE Feature!*\n\n"
-        "Just send me a *voice message* or *audio file* of any song "
-        "and I will tell you:\n\n"
-        "• 🎤 Artist name\n"
-        "• 🎵 Song title\n"
-        "• 💿 Album\n"
-        "• 🔗 Apple Music & Spotify link\n\n"
-        "Go ahead — send your audio now! 🎶",
+    user_id = query.from_user.id
+
+    idx = int(query.data.split("_", 1)[1])
+    results = user_search_cache.get(user_id, [])
+
+    if not results or idx >= len(results):
+        await query.message.reply_text("❌ Session expired. Please search again.")
+        return
+
+    song = results[idx]
+    loading_msg = await query.message.reply_text(
+        f"⬇️ Downloading *{song['title']}*...\nThis may take a few seconds ⏳",
         parse_mode=ParseMode.MARKDOWN,
     )
 
+    output_path = os.path.join(MUSIC_FOLDER, f"{user_id}_{idx}")
+
+    try:
+        loop = asyncio.get_event_loop()
+        audio_file = await loop.run_in_executor(
+            None, download_audio, song["url"], output_path
+        )
+
+        await loading_msg.edit_text(f"📤 Sending *{song['title']}*...", parse_mode=ParseMode.MARKDOWN)
+
+        with open(audio_file, "rb") as f:
+            await context.bot.send_audio(
+                chat_id=query.message.chat_id,
+                audio=f,
+                title=song["title"],
+                performer=song["channel"],
+                caption=f"🎵 *{song['title']}*\n🎤 {song['channel']}\n\n_Ethio Empire Music Bot_",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+
+        await loading_msg.delete()
+
+        # Clean up file
+        if os.path.exists(audio_file):
+            os.remove(audio_file)
+
+    except Exception as e:
+        logger.error("Download error: %s", e)
+        await loading_msg.edit_text(
+            "⚠️ Could not download this track. Please try another one."
+        )
+        if os.path.exists(output_path + ".mp3"):
+            os.remove(output_path + ".mp3")
+
+async def more_tracks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    search_query = query.data.split("_", 1)[1]
+    await query.message.reply_text(
+        f"🔍 Type *{search_query}* again to get a fresh set of results, "
+        f"or try a more specific search like *{search_query} new song*.",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+# ----------------------------------------------------------------------
+# PAYMENT PROOF
+# ----------------------------------------------------------------------
+
 async def receive_proof(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """User sends payment screenshot -> forward to owner with Approve/Reject."""
     data = load_data()
     user = update.effective_user
 
@@ -182,93 +349,6 @@ async def receive_proof(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 # ----------------------------------------------------------------------
-# 🎵 SHAZAM — SONG IDENTIFICATION
-# ----------------------------------------------------------------------
-
-async def identify_song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Receives voice or audio, sends to AudD API, replies with song info."""
-    msg = update.message
-    user = update.effective_user
-
-    # Get the file
-    if msg.voice:
-        tg_file = await msg.voice.get_file()
-        ext = "ogg"
-    elif msg.audio:
-        tg_file = await msg.audio.get_file()
-        ext = "mp3"
-    else:
-        await msg.reply_text("Please send a voice message or audio file.")
-        return
-
-    thinking = await msg.reply_text("🎵 Listening to your audio... identifying song ⏳")
-
-    # Download to temp file
-    with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
-        tmp_path = tmp.name
-
-    try:
-        await tg_file.download_to_drive(tmp_path)
-
-        # Send to AudD API
-        async with aiohttp.ClientSession() as session:
-            with open(tmp_path, "rb") as audio_data:
-                form = aiohttp.FormData()
-                form.add_field("api_token", AUDD_TOKEN)
-                form.add_field("return", "apple_music,spotify")
-                form.add_field("file", audio_data, filename=f"audio.{ext}")
-
-                async with session.post("https://api.audd.io/", data=form) as resp:
-                    result = await resp.json()
-
-        logger.info("AudD response: %s", result)
-
-        if result.get("status") == "success" and result.get("result"):
-            song = result["result"]
-            title   = song.get("title", "Unknown")
-            artist  = song.get("artist", "Unknown")
-            album   = song.get("album", "Unknown")
-            release = song.get("release_date", "Unknown")
-
-            # Links
-            spotify_link = ""
-            apple_link   = ""
-            if song.get("spotify") and song["spotify"].get("external_urls"):
-                spotify_link = f"\n🟢 [Listen on Spotify]({song['spotify']['external_urls'].get('spotify','')})"
-            if song.get("apple_music") and song["apple_music"].get("url"):
-                apple_link = f"\n🍎 [Listen on Apple Music]({song['apple_music']['url']})"
-
-            reply = (
-                f"🎵 *Song Found!*\n\n"
-                f"🎤 *Artist:* {artist}\n"
-                f"🎵 *Title:* {title}\n"
-                f"💿 *Album:* {album}\n"
-                f"📅 *Released:* {release}"
-                f"{spotify_link}"
-                f"{apple_link}"
-            )
-            await thinking.edit_text(reply, parse_mode=ParseMode.MARKDOWN)
-
-        else:
-            await thinking.edit_text(
-                "❌ *Could not identify this song.*\n\n"
-                "Tips for better results:\n"
-                "• Make sure the audio has clear music (not just talking)\n"
-                "• Try sending a longer clip (at least 10 seconds)\n"
-                "• Reduce background noise if possible",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-
-    except Exception as e:
-        logger.error("Song ID error: %s", e)
-        await thinking.edit_text(
-            "⚠️ Something went wrong while identifying the song. Please try again."
-        )
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-
-# ----------------------------------------------------------------------
 # OWNER APPROVAL
 # ----------------------------------------------------------------------
 
@@ -281,16 +361,15 @@ async def approval_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     parts = query.data.split("_", 1)
-    action = parts[0]
+    action  = parts[0]
     user_id = int(parts[1])
-    data = load_data()
+    data    = load_data()
 
     if action == "approve":
         data["pending"].pop(str(user_id), None)
         if user_id not in data["approved"]:
             data["approved"].append(user_id)
         save_data(data)
-
         await query.edit_message_caption(
             caption=(query.message.caption or "") + "\n\n✅ APPROVED",
             parse_mode=ParseMode.MARKDOWN,
@@ -299,11 +378,9 @@ async def approval_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             chat_id=user_id,
             text=(
                 f"🎉 *Payment Approved! Welcome to Ethio Empire!*\n\n"
-                f"Tap the link below to join your private channel.\n"
-                f"You will find all tutorial videos, PDFs, and tests inside.\n\n"
                 f"🔗 {data['channel_link']}\n\n"
                 f"_Keep this link private — it is only for you._\n\n"
-                f"🎵 *Bonus:* You can also send me any audio to identify songs for free!"
+                f"🎵 *Bonus:* Type any artist name to search and download music free!"
             ),
             parse_mode=ParseMode.MARKDOWN,
         )
@@ -411,14 +488,16 @@ def main() -> None:
     app.add_handler(CommandHandler("pending",  pending_cmd))
 
     app.add_handler(CallbackQueryHandler(show_payment,      pattern="^show_payment$"))
-    app.add_handler(CallbackQueryHandler(shazam_info,       pattern="^shazam_info$"))
+    app.add_handler(CallbackQueryHandler(music_help,        pattern="^music_help$"))
+    app.add_handler(CallbackQueryHandler(play_song,         pattern="^play_\\d+$"))
+    app.add_handler(CallbackQueryHandler(more_tracks,       pattern="^more_"))
     app.add_handler(CallbackQueryHandler(approval_callback, pattern="^(approve|reject)_"))
 
-    # Song identification — voice and audio messages
-    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, identify_song))
-
-    # Payment proof — photo messages
+    # Photo = payment proof
     app.add_handler(MessageHandler(filters.PHOTO, receive_proof))
+
+    # Any text = music search
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     logger.info("Ethio Empire bot is running...")
     app.run_polling()
