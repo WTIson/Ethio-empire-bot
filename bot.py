@@ -1,506 +1,344 @@
-"""
-Ethio Empire Bot
------------------
-Features:
-1. Tutorial course sales — user pays, owner approves, bot sends private channel link
-2. 🎵 Music search — user types artist/song name, bot shows list, user picks, bot sends audio
-
-Owner commands:
-  /setprice 500         - change the price
-  /setpay <text>        - update Telebirr/CBE payment details
-  /pending              - see who is waiting for approval
-  /setlink <url>        - update the private channel invite link
-"""
-
-import json
-import logging
-import os
 import asyncio
+import logging
 
-import yt_dlp
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.constants import ParseMode
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
+from aiogram import Bot, Dispatcher, Router, F
+from aiogram.client.default import DefaultBotProperties
+from aiogram.filters import Command, CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardRemove,
 )
 
-# ----------------------------------------------------------------------
-# CONFIG — EDIT THESE LINES
-# ----------------------------------------------------------------------
+import config
+import db
 
-BOT_TOKEN = "7864255983:AAE5cU2QIPb9cD01KUlruK8awRkA_JB9BF8"   # from @BotFather
-OWNER_ID  = 6974850092                   # your numeric Telegram user ID
+logging.basicConfig(level=logging.INFO)
+router = Router()
 
-# ----------------------------------------------------------------------
-# DEFAULT DATA
-# ----------------------------------------------------------------------
 
-DATA_FILE    = "data.json"
-MUSIC_FOLDER = "downloads"
-os.makedirs(MUSIC_FOLDER, exist_ok=True)
+# ---------------------------------------------------------------------------
+# FSM states
+# ---------------------------------------------------------------------------
+class Registration(StatesGroup):
+    name = State()
+    age = State()
+    gender = State()
+    looking_for = State()
+    city = State()
+    bio = State()
+    photo = State()
 
-DEFAULT_DATA = {
-    "price": 500,
-    "currency": "ETB",
-    "channel_link": "https://t.me/+wPe77gv04BIzZjQ0",
-    "payment_instructions": (
-        "Send the payment to:\n"
-        "Telebirr: 0987015014\n"
-        "CBE Account: 1000659611841\n"
-        "Account Name: wendesen tamru\n\n"
-        "After paying, send a screenshot of the receipt here."
-    ),
-    "pending": {},
-    "approved": [],
-}
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
-
-# In-memory search results per user: {user_id: [video_info, ...]}
-user_search_cache = {}
-
-# ----------------------------------------------------------------------
-# DATABASE HELPERS
-# ----------------------------------------------------------------------
-
-def load_data() -> dict:
-    if not os.path.exists(DATA_FILE):
-        save_data(DEFAULT_DATA)
-        return dict(DEFAULT_DATA)
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_data(data: dict) -> None:
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-
-# ----------------------------------------------------------------------
-# YOUTUBE SEARCH HELPER
-# ----------------------------------------------------------------------
-
-def search_youtube(query: str, max_results: int = 8) -> list:
-    """Search YouTube and return list of {title, url, duration, channel}."""
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "extract_flat": True,
-        "default_search": f"ytsearch{max_results}",
-        "skip_download": True,
-    }
-    results = []
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query, download=False)
-        if "entries" in info:
-            for entry in info["entries"]:
-                if entry:
-                    duration = entry.get("duration", 0)
-                    mins = int(duration // 60) if duration else 0
-                    secs = int(duration % 60) if duration else 0
-                    results.append({
-                        "title":    entry.get("title", "Unknown"),
-                        "url":      f"https://www.youtube.com/watch?v={entry.get('id','')}",
-                        "id":       entry.get("id", ""),
-                        "duration": f"{mins}:{secs:02d}" if duration else "?:??",
-                        "channel":  entry.get("channel") or entry.get("uploader", ""),
-                    })
-    return results
-
-def download_audio(video_url: str, output_path: str) -> str:
-    """Download audio from YouTube video. Returns the file path."""
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "format": "bestaudio/best",
-        "outtmpl": output_path + ".%(ext)s",
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
-    return output_path + ".mp3"
-
-# ----------------------------------------------------------------------
-# USER HANDLERS
-# ----------------------------------------------------------------------
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    data = load_data()
-    user_id = update.effective_user.id
-
-    if user_id in data["approved"]:
-        await update.message.reply_text(
-            f"✅ *Welcome back!*\n\nYou already have access.\n\n"
-            f"🔗 {data['channel_link']}\n\n"
-            f"🎵 *Music Search:* Just type any artist or song name and I'll find it for you!",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
-
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💳 Buy Course Access", callback_data="show_payment")],
-        [InlineKeyboardButton("🎵 Search Music (Free)", callback_data="music_help")],
-    ])
-    await update.message.reply_text(
-        f"🎬 *Welcome to Ethio Empire!*\n\n"
-        f"Get full access to *all* tutorial videos, PDFs, and tests.\n\n"
-        f"💰 Price: *{data['price']} {data['currency']}*\n\n"
-        f"🎵 *FREE:* Type any artist or song name to search and download music!\n\n"
-        f"Example: just type *Leul Sisay* or *Teddy Afro*",
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=keyboard,
+# ---------------------------------------------------------------------------
+# Keyboards
+# ---------------------------------------------------------------------------
+def gender_kb(prefix: str) -> ReplyKeyboardMarkup:
+    labels = ["Male", "Female", "Other"] if prefix == "gender" else ["Male", "Female", "Any"]
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=label)] for label in labels],
+        resize_keyboard=True,
+        one_time_keyboard=True,
     )
 
-async def music_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    await query.message.reply_text(
-        "🎵 *Music Search — FREE!*\n\n"
-        "Just type the name of any artist or song directly in the chat.\n\n"
-        "*Examples:*\n"
-        "• Leul Sisay\n"
-        "• Teddy Afro\n"
-        "• Zeritu Kebede\n"
-        "• Yegna\n\n"
-        "I will show you a list of songs to choose from! 🎶",
-        parse_mode=ParseMode.MARKDOWN,
-    )
 
-async def show_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    data = load_data()
-    await query.message.reply_text(
-        f"💰 *Price: {data['price']} {data['currency']}*\n\n"
-        f"{data['payment_instructions']}\n\n"
-        f"📸 Once paid, send your receipt screenshot here.",
-        parse_mode=ParseMode.MARKDOWN,
-    )
-
-# ----------------------------------------------------------------------
-# 🎵 MUSIC SEARCH & DOWNLOAD
-# ----------------------------------------------------------------------
-
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Any text message is treated as a music search query."""
-    query = update.message.text.strip()
-    user_id = update.effective_user.id
-
-    if not query:
-        return
-
-    searching_msg = await update.message.reply_text(
-        f"🔍 Searching for *{query}*...",
-        parse_mode=ParseMode.MARKDOWN,
-    )
-
-    try:
-        loop = asyncio.get_event_loop()
-        results = await loop.run_in_executor(None, search_youtube, query)
-
-        if not results:
-            await searching_msg.edit_text("❌ No results found. Try a different search.")
-            return
-
-        # Cache results for this user
-        user_search_cache[user_id] = results
-
-        # Build inline keyboard — one button per result
-        buttons = []
-        for i, r in enumerate(results):
-            label = f"• {r['duration']} • {r['title'][:45]}"
-            buttons.append([InlineKeyboardButton(label, callback_data=f"play_{i}")])
-
-        buttons.append([InlineKeyboardButton("+ More tracks", callback_data=f"more_{query}")])
-
-        keyboard = InlineKeyboardMarkup(buttons)
-        await searching_msg.edit_text(
-            f"🎵 Results for *{query}*:",
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=keyboard,
-        )
-
-    except Exception as e:
-        logger.error("Search error: %s", e)
-        await searching_msg.edit_text(
-            "⚠️ Search failed. Please try again in a moment."
-        )
-
-async def play_song(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """User taps a song from the list — download and send as audio."""
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-
-    idx = int(query.data.split("_", 1)[1])
-    results = user_search_cache.get(user_id, [])
-
-    if not results or idx >= len(results):
-        await query.message.reply_text("❌ Session expired. Please search again.")
-        return
-
-    song = results[idx]
-    loading_msg = await query.message.reply_text(
-        f"⬇️ Downloading *{song['title']}*...\nThis may take a few seconds ⏳",
-        parse_mode=ParseMode.MARKDOWN,
-    )
-
-    output_path = os.path.join(MUSIC_FOLDER, f"{user_id}_{idx}")
-
-    try:
-        loop = asyncio.get_event_loop()
-        audio_file = await loop.run_in_executor(
-            None, download_audio, song["url"], output_path
-        )
-
-        await loading_msg.edit_text(f"📤 Sending *{song['title']}*...", parse_mode=ParseMode.MARKDOWN)
-
-        with open(audio_file, "rb") as f:
-            await context.bot.send_audio(
-                chat_id=query.message.chat_id,
-                audio=f,
-                title=song["title"],
-                performer=song["channel"],
-                caption=f"🎵 *{song['title']}*\n🎤 {song['channel']}\n\n_Ethio Empire Music Bot_",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-
-        await loading_msg.delete()
-
-        # Clean up file
-        if os.path.exists(audio_file):
-            os.remove(audio_file)
-
-    except Exception as e:
-        logger.error("Download error: %s", e)
-        await loading_msg.edit_text(
-            "⚠️ Could not download this track. Please try another one."
-        )
-        if os.path.exists(output_path + ".mp3"):
-            os.remove(output_path + ".mp3")
-
-async def more_tracks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
-    search_query = query.data.split("_", 1)[1]
-    await query.message.reply_text(
-        f"🔍 Type *{search_query}* again to get a fresh set of results, "
-        f"or try a more specific search like *{search_query} new song*.",
-        parse_mode=ParseMode.MARKDOWN,
-    )
-
-# ----------------------------------------------------------------------
-# PAYMENT PROOF
-# ----------------------------------------------------------------------
-
-async def receive_proof(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    data = load_data()
-    user = update.effective_user
-
-    if user.id in data["approved"]:
-        await update.message.reply_text(
-            f"✅ You already have access!\n\n🔗 {data['channel_link']}"
-        )
-        return
-
-    data["pending"][str(user.id)] = {
-        "name": user.full_name,
-        "username": user.username or "",
-    }
-    save_data(data)
-
-    await update.message.reply_text(
-        "✅ *Payment proof received!*\n\n"
-        "Your screenshot has been sent for review.\n"
-        "You will get the channel link automatically once approved. ⏳",
-        parse_mode=ParseMode.MARKDOWN,
-    )
-
-    caption = (
-        f"🧾 *New Payment Proof*\n"
-        f"👤 Name: {user.full_name}\n"
-        f"🔖 Username: @{user.username or 'none'}\n"
-        f"🆔 User ID: {user.id}"
-    )
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ Approve", callback_data=f"approve_{user.id}"),
-            InlineKeyboardButton("❌ Reject",  callback_data=f"reject_{user.id}"),
+def swipe_kb(target_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="👎 Pass", callback_data=f"swipe:pass:{target_id}"),
+                InlineKeyboardButton(text="👍 Like", callback_data=f"swipe:like:{target_id}"),
+            ],
+            [InlineKeyboardButton(text="🚩 Report", callback_data=f"swipe:report:{target_id}")],
         ]
-    ])
-    photo_file_id = update.message.photo[-1].file_id
-    await context.bot.send_photo(
-        chat_id=OWNER_ID,
-        photo=photo_file_id,
-        caption=caption,
-        parse_mode=ParseMode.MARKDOWN,
-        reply_markup=keyboard,
     )
 
-# ----------------------------------------------------------------------
-# OWNER APPROVAL
-# ----------------------------------------------------------------------
 
-async def approval_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    await query.answer()
+def admin_kb(user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Approve", callback_data=f"mod:approve:{user_id}"),
+                InlineKeyboardButton(text="❌ Reject", callback_data=f"mod:reject:{user_id}"),
+            ]
+        ]
+    )
 
-    if query.from_user.id != OWNER_ID:
-        await query.answer("Owner only.", show_alert=True)
+
+# ---------------------------------------------------------------------------
+# /start and registration flow
+# ---------------------------------------------------------------------------
+@router.message(CommandStart())
+async def cmd_start(message: Message, state: FSMContext):
+    user = db.get_user(message.from_user.id)
+    if user and db.is_profile_complete(message.from_user.id):
+        await message.answer(
+            "Welcome back! Use /discover to see profiles, or /profile to review yours."
+        )
         return
 
-    parts = query.data.split("_", 1)
-    action  = parts[0]
-    user_id = int(parts[1])
-    data    = load_data()
+    await message.answer(
+        "Welcome to Local Match 💜\n\n"
+        "Let's set up your profile. This bot is for adults 18+ only.\n\n"
+        "What's your name?"
+    )
+    await state.set_state(Registration.name)
+
+
+@router.message(Registration.name)
+async def reg_name(message: Message, state: FSMContext):
+    name = message.text.strip()[: config.NAME_MAX_LEN]
+    db.upsert_user_field(message.from_user.id, username=message.from_user.username, name=name)
+    await message.answer("How old are you?", reply_markup=ReplyKeyboardRemove())
+    await state.set_state(Registration.age)
+
+
+@router.message(Registration.age)
+async def reg_age(message: Message, state: FSMContext):
+    if not message.text.isdigit():
+        await message.answer("Please send your age as a number.")
+        return
+    age = int(message.text)
+    if age < config.MIN_AGE:
+        await message.answer(
+            "Sorry, this bot is only available to users 18 and older. "
+            "You can't register at this time."
+        )
+        await state.clear()
+        return
+    if age > 100:
+        await message.answer("Please enter a realistic age.")
+        return
+
+    db.upsert_user_field(message.from_user.id, age=age)
+    await message.answer("What's your gender?", reply_markup=gender_kb("gender"))
+    await state.set_state(Registration.gender)
+
+
+@router.message(Registration.gender, F.text.in_(["Male", "Female", "Other"]))
+async def reg_gender(message: Message, state: FSMContext):
+    db.upsert_user_field(message.from_user.id, gender=message.text.lower())
+    await message.answer("Who are you interested in meeting?", reply_markup=gender_kb("pref"))
+    await state.set_state(Registration.looking_for)
+
+
+@router.message(Registration.gender)
+async def reg_gender_invalid(message: Message):
+    await message.answer("Please tap one of the buttons: Male, Female, or Other.")
+
+
+@router.message(Registration.looking_for, F.text.in_(["Male", "Female", "Any"]))
+async def reg_looking_for(message: Message, state: FSMContext):
+    db.upsert_user_field(message.from_user.id, looking_for=message.text.lower())
+    await message.answer("Which city are you in?", reply_markup=ReplyKeyboardRemove())
+    await state.set_state(Registration.city)
+
+
+@router.message(Registration.looking_for)
+async def reg_looking_for_invalid(message: Message):
+    await message.answer("Please tap one of the buttons: Male, Female, or Any.")
+
+
+@router.message(Registration.city)
+async def reg_city(message: Message, state: FSMContext):
+    city = message.text.strip()[: config.CITY_MAX_LEN]
+    db.upsert_user_field(message.from_user.id, city=city)
+    await message.answer("Write a short bio (a sentence or two about you).")
+    await state.set_state(Registration.bio)
+
+
+@router.message(Registration.bio)
+async def reg_bio(message: Message, state: FSMContext):
+    bio = message.text.strip()[: config.BIO_MAX_LEN]
+    db.upsert_user_field(message.from_user.id, bio=bio)
+    await message.answer("Last step — send one photo of yourself for your profile.")
+    await state.set_state(Registration.photo)
+
+
+@router.message(Registration.photo, F.photo)
+async def reg_photo(message: Message, state: FSMContext, bot: Bot):
+    file_id = message.photo[-1].file_id
+    db.upsert_user_field(
+        message.from_user.id, photo_file_id=file_id, photo_status="pending"
+    )
+    await state.clear()
+    await message.answer(
+        "Thanks! Your photo is being reviewed before your profile goes live. "
+        "We'll notify you once it's approved."
+    )
+
+    if config.ADMIN_ID:
+        u = db.get_user(message.from_user.id)
+        caption = (
+            f"🆕 New profile pending review\n\n"
+            f"Name: {u['name']}\nAge: {u['age']}\nGender: {u['gender']}\n"
+            f"City: {u['city']}\nBio: {u['bio']}\n"
+            f"Telegram: @{u['username'] or 'N/A'} (id {u['user_id']})"
+        )
+        await bot.send_photo(
+            config.ADMIN_ID, file_id, caption=caption, reply_markup=admin_kb(u["user_id"])
+        )
+
+
+@router.message(Registration.photo)
+async def reg_photo_invalid(message: Message):
+    await message.answer("Please send a photo (as an image, not a file).")
+
+
+# ---------------------------------------------------------------------------
+# Admin moderation
+# ---------------------------------------------------------------------------
+@router.callback_query(F.data.startswith("mod:"))
+async def admin_moderate(callback: CallbackQuery, bot: Bot):
+    if callback.from_user.id != config.ADMIN_ID:
+        await callback.answer("Not authorized.", show_alert=True)
+        return
+
+    _, action, user_id_str = callback.data.split(":")
+    user_id = int(user_id_str)
 
     if action == "approve":
-        data["pending"].pop(str(user_id), None)
-        if user_id not in data["approved"]:
-            data["approved"].append(user_id)
-        save_data(data)
-        await query.edit_message_caption(
-            caption=(query.message.caption or "") + "\n\n✅ APPROVED",
-            parse_mode=ParseMode.MARKDOWN,
+        db.set_photo_status(user_id, "approved")
+        await bot.send_message(
+            user_id, "✅ Your profile photo was approved! You're live. Use /discover to start matching."
         )
-        await context.bot.send_message(
-            chat_id=user_id,
-            text=(
-                f"🎉 *Payment Approved! Welcome to Ethio Empire!*\n\n"
-                f"🔗 {data['channel_link']}\n\n"
-                f"_Keep this link private — it is only for you._\n\n"
-                f"🎵 *Bonus:* Type any artist name to search and download music free!"
-            ),
-            parse_mode=ParseMode.MARKDOWN,
+        await callback.message.edit_caption(caption=callback.message.caption + "\n\n✅ APPROVED")
+    else:
+        db.set_photo_status(user_id, "rejected")
+        await bot.send_message(
+            user_id,
+            "❌ Your photo was rejected (doesn't meet our guidelines). "
+            "Please send a new, appropriate photo of yourself to continue.",
         )
+        await callback.message.edit_caption(caption=callback.message.caption + "\n\n❌ REJECTED")
 
-    elif action == "reject":
-        data["pending"].pop(str(user_id), None)
-        save_data(data)
-        await query.edit_message_caption(
-            caption=(query.message.caption or "") + "\n\n❌ REJECTED",
-            parse_mode=ParseMode.MARKDOWN,
+    await callback.answer()
+
+
+# ---------------------------------------------------------------------------
+# Discovery / swiping
+# ---------------------------------------------------------------------------
+@router.message(Command("discover"))
+async def cmd_discover(message: Message):
+    await show_next_candidate(message)
+
+
+async def show_next_candidate(message: Message):
+    user_id = message.from_user.id
+    user = db.get_user(user_id)
+
+    if not user or not db.is_profile_complete(user_id):
+        await message.answer("Please finish registration first with /start.")
+        return
+    if user["photo_status"] != "approved":
+        await message.answer("Your profile is still pending photo review. Hang tight!")
+        return
+
+    if not user["is_premium"] and db.likes_today(user_id) >= config.FREE_DAILY_LIKES:
+        await message.answer(
+            f"You've hit your {config.FREE_DAILY_LIKES} free likes for today. "
+            "Come back tomorrow, or upgrade to premium for unlimited likes. (/premium)"
         )
-        await context.bot.send_message(
-            chat_id=user_id,
-            text=(
-                "❌ *Payment could not be verified.*\n\n"
-                "Please make sure the screenshot clearly shows:\n"
-                "• The amount sent\n"
-                "• The recipient account\n"
-                "• The transaction confirmation\n\n"
-                "Send a new screenshot or contact support."
-            ),
-            parse_mode=ParseMode.MARKDOWN,
-        )
-
-# ----------------------------------------------------------------------
-# OWNER COMMANDS
-# ----------------------------------------------------------------------
-
-def owner_only(func):
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.effective_user.id != OWNER_ID:
-            await update.message.reply_text("This command is owner-only.")
-            return
-        return await func(update, context)
-    return wrapper
-
-@owner_only
-async def setprice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not context.args:
-        await update.message.reply_text("Usage: /setprice 500")
         return
-    try:
-        price = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("Please enter a number. Example: /setprice 500")
-        return
-    data = load_data()
-    data["price"] = price
-    save_data(data)
-    await update.message.reply_text(f"✅ Price updated to {price} {data['currency']}.")
 
-@owner_only
-async def setpay(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text = update.message.text.partition(" ")[2]
-    if not text:
-        await update.message.reply_text("Usage: /setpay <your payment details text>")
+    candidate = db.next_candidate(user_id)
+    if not candidate:
+        await message.answer("No new profiles right now — check back later!")
         return
-    data = load_data()
-    data["payment_instructions"] = text
-    save_data(data)
-    await update.message.reply_text("✅ Payment instructions updated.")
 
-@owner_only
-async def setlink(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not context.args:
-        await update.message.reply_text("Usage: /setlink https://t.me/+xxxxxxx")
-        return
-    link = context.args[0]
-    data = load_data()
-    data["channel_link"] = link
-    save_data(data)
-    await update.message.reply_text(f"✅ Channel link updated to:\n{link}")
-
-@owner_only
-async def pending_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    data = load_data()
-    if not data["pending"]:
-        await update.message.reply_text("No pending payments right now.")
-        return
-    lines = [
-        f"• {info['name']} (@{info['username'] or 'none'}) — ID: {uid}"
-        for uid, info in data["pending"].items()
-    ]
-    await update.message.reply_text(
-        "⏳ *Pending Payments:*\n" + "\n".join(lines),
-        parse_mode=ParseMode.MARKDOWN,
+    caption = (
+        f"{candidate['name']}, {candidate['age']}\n"
+        f"📍 {candidate['city']}\n\n"
+        f"{candidate['bio']}"
+    )
+    await message.answer_photo(
+        candidate["photo_file_id"], caption=caption, reply_markup=swipe_kb(candidate["user_id"])
     )
 
-# ----------------------------------------------------------------------
-# MAIN
-# ----------------------------------------------------------------------
 
-def main() -> None:
-    if BOT_TOKEN == "PUT_YOUR_BOT_TOKEN_HERE":
-        raise SystemExit("❌ Please set BOT_TOKEN at the top of bot.py first.")
-    if OWNER_ID == 123456789:
-        raise SystemExit("❌ Please set OWNER_ID at the top of bot.py to your Telegram user ID.")
+@router.callback_query(F.data.startswith("swipe:"))
+async def handle_swipe(callback: CallbackQuery, bot: Bot):
+    _, action, target_id_str = callback.data.split(":")
+    target_id = int(target_id_str)
+    from_id = callback.from_user.id
 
-    app = Application.builder().token(BOT_TOKEN).build()
+    if db.has_swiped(from_id, target_id):
+        await callback.answer("Already handled this profile.")
+        return
 
-    app.add_handler(CommandHandler("start",    start))
-    app.add_handler(CommandHandler("setprice", setprice))
-    app.add_handler(CommandHandler("setpay",   setpay))
-    app.add_handler(CommandHandler("setlink",  setlink))
-    app.add_handler(CommandHandler("pending",  pending_cmd))
+    if action == "report":
+        db.add_report(from_id, target_id)
+        db.record_swipe(from_id, target_id, "pass")
+        await callback.answer("Report submitted. This profile will be reviewed.", show_alert=True)
+        await callback.message.delete()
+        return
 
-    app.add_handler(CallbackQueryHandler(show_payment,      pattern="^show_payment$"))
-    app.add_handler(CallbackQueryHandler(music_help,        pattern="^music_help$"))
-    app.add_handler(CallbackQueryHandler(play_song,         pattern="^play_\\d+$"))
-    app.add_handler(CallbackQueryHandler(more_tracks,       pattern="^more_"))
-    app.add_handler(CallbackQueryHandler(approval_callback, pattern="^(approve|reject)_"))
+    db.record_swipe(from_id, target_id, action)
 
-    # Photo = payment proof
-    app.add_handler(MessageHandler(filters.PHOTO, receive_proof))
+    if action == "like":
+        if db.mutual_like_exists(from_id, target_id):
+            db.create_match(from_id, target_id)
+            me = db.get_user(from_id)
+            them = db.get_user(target_id)
+            await bot.send_message(
+                from_id,
+                f"🎉 It's a match with {them['name']}! "
+                f"Say hi: tg://user?id={them['user_id']}"
+                + (f" (@{them['username']})" if them["username"] else ""),
+            )
+            await bot.send_message(
+                target_id,
+                f"🎉 It's a match with {me['name']}! "
+                f"Say hi: tg://user?id={me['user_id']}"
+                + (f" (@{me['username']})" if me["username"] else ""),
+            )
 
-    # Any text = music search
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    await callback.answer()
+    await callback.message.delete()
+    await show_next_candidate(callback.message)
 
-    logger.info("Ethio Empire bot is running...")
-    app.run_polling()
+
+# ---------------------------------------------------------------------------
+# Misc commands
+# ---------------------------------------------------------------------------
+@router.message(Command("profile"))
+async def cmd_profile(message: Message):
+    u = db.get_user(message.from_user.id)
+    if not u or not db.is_profile_complete(message.from_user.id):
+        await message.answer("You haven't finished registration yet. Use /start.")
+        return
+    status = {"approved": "✅ live", "pending": "⏳ pending review", "rejected": "❌ rejected"}
+    caption = (
+        f"{u['name']}, {u['age']}\n📍 {u['city']}\n\n{u['bio']}\n\n"
+        f"Status: {status.get(u['photo_status'], u['photo_status'])}"
+    )
+    await message.answer_photo(u["photo_file_id"], caption=caption)
+
+
+@router.message(Command("premium"))
+async def cmd_premium(message: Message):
+    await message.answer(
+        "Premium removes your daily like limit and lets you see who liked you first.\n\n"
+        "Payments aren't wired up in this prototype yet — plug in Telegram's native "
+        "Payments API (bot.send_invoice) here."
+    )
+
+
+async def main():
+    db.init_db()
+    bot = Bot(token=config.BOT_TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+    dp = Dispatcher(storage=MemoryStorage())
+    dp.include_router(router)
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
