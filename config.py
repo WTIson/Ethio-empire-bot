@@ -1,7 +1,7 @@
 import os
 
 # --- Required ---
-BOT_TOKEN = os.getenv("BOT_TOKEN", "PUT_YOUR_BOT_TOKEN_HERE")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "7864255983:AAE5cU2QIPb9cD01KUlruK8awRkA_JB9BF8")
 
 # Telegram user ID of the person who will moderate photos (get yours from @userinfobot)
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
