@@ -4,7 +4,7 @@ import os
 BOT_TOKEN = os.getenv("BOT_TOKEN", "7864255983:AAE5cU2QIPb9cD01KUlruK8awRkA_JB9BF8")
 
 # Telegram user ID of the person who will moderate photos (get yours from @userinfobot)
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+ADMIN_ID = int(os.getenv("ADMIN_ID", "6974850092"))
 
 # --- Tunables ---
 DB_PATH = os.getenv("DB_PATH", "dating.db")
